@@ -93,7 +93,7 @@ export default function ChatBot() {
       </div>
 
       {/* Messages Area */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px', background: '#ffffff' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '24px', background: '#ffffff' }}>
         {messages.map((msg) => (
           <div key={msg.id} style={{ display: 'flex', gap: '15px', alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
             
@@ -107,12 +107,13 @@ export default function ChatBot() {
               <div style={{ 
                 background: msg.sender === 'user' ? 'var(--primary-color)' : '#f1f5f9', 
                 color: msg.sender === 'user' ? 'white' : 'var(--text-primary)',
-                padding: '12px 18px',
+                padding: '16px 22px',
                 borderRadius: '16px',
                 borderBottomRightRadius: msg.sender === 'user' ? '4px' : '16px',
                 borderTopLeftRadius: msg.sender === 'bot' ? '4px' : '16px',
-                lineHeight: '1.5',
-                fontSize: '0.95rem'
+                lineHeight: '1.6',
+                fontSize: '1rem',
+                boxShadow: msg.sender === 'user' ? '0 4px 10px rgba(79, 70, 229, 0.2)' : '0 2px 5px rgba(0,0,0,0.05)'
               }}>
                 {msg.text}
               </div>
@@ -121,24 +122,24 @@ export default function ChatBot() {
               {msg.type === 'translation' && msg.results && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
                   {msg.results.map((item, index) => (
-                    <div key={index} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '15px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed #e2e8f0', paddingBottom: '8px' }}>
-                          <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#6366f1', textTransform: 'uppercase' }}>Ivatan</span>
-                          <span style={{ fontWeight: '700', color: '#0f172a' }}>{item.ivatan}</span>
+                    <div key={index} style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px 20px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1px dashed #e2e8f0', paddingBottom: '10px' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ivatan</span>
+                          <span style={{ fontWeight: '700', color: '#0f172a', fontSize: '1.05rem', wordBreak: 'break-word' }}>{item.ivatan}</span>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed #e2e8f0', paddingBottom: '8px' }}>
-                          <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#10b981', textTransform: 'uppercase' }}>Tagalog</span>
-                          <span style={{ fontWeight: '700', color: '#0f172a' }}>{item.tagalog}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1px dashed #e2e8f0', paddingBottom: '10px' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tagalog</span>
+                          <span style={{ fontWeight: '700', color: '#0f172a', fontSize: '1.05rem', wordBreak: 'break-word' }}>{item.tagalog}</span>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#f59e0b', textTransform: 'uppercase' }}>English</span>
-                          <span style={{ fontWeight: '700', color: '#0f172a' }}>{item.english}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>English</span>
+                          <span style={{ fontWeight: '700', color: '#0f172a', fontSize: '1.05rem', wordBreak: 'break-word' }}>{item.english}</span>
                         </div>
                       </div>
                       {item.category && (
-                         <div style={{ marginTop: '10px', fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                           <Globe size={12} /> {item.category}
+                         <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed #e2e8f0', fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                           <Globe size={14} /> <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '12px', fontWeight: '500' }}>{item.category}</span>
                          </div>
                       )}
                     </div>
