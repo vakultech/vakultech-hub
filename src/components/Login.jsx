@@ -14,6 +14,19 @@ export default function Login({ onLogin }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const logLogin = async (user) => {
+    if (!user) return;
+    try {
+      await supabase.from('admin_logs').insert([{
+        action: 'Logged In',
+        details: 'Admin successfully authenticated',
+        admin_email: user.email
+      }]);
+    } catch (err) {
+      console.error('Failed to log login:', err);
+    }
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -33,6 +46,7 @@ export default function Login({ onLogin }) {
         
         if (factors.length === 0) {
           // No MFA enrolled yet. Let them login. They can enroll in Admin panel.
+          await logLogin(data.user);
           onLogin(data.session);
         } else {
           // Already enrolled, prompt for challenge code
@@ -42,6 +56,7 @@ export default function Login({ onLogin }) {
             setStep('challenge');
           } else {
             // Unknown factor type, just login for now
+            await logLogin(data.user);
             onLogin(data.session);
           }
         }
@@ -72,6 +87,9 @@ export default function Login({ onLogin }) {
 
       // Verification successful!
       const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session?.user) {
+        await logLogin(sessionData.session.user);
+      }
       onLogin(sessionData.session);
     } catch (err) {
       setError(err.message || 'Invalid code. Please try again.');

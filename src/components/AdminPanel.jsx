@@ -113,8 +113,24 @@ export default function AdminPanel() {
     }
   };
 
+  // Admin Logs State
+  const [adminLogs, setAdminLogs] = useState([]);
+
+  const fetchAdminLogs = async () => {
+    try {
+      const { data, error } = await supabase.from('admin_logs').select('*').order('created_at', { ascending: false }).limit(50);
+      if (error) throw error;
+      setAdminLogs(data || []);
+    } catch (err) {
+      console.error('Failed to fetch admin logs:', err);
+    }
+  };
+
   useEffect(() => {
-    if (activeTab === 'security') checkMfaStatus();
+    if (activeTab === 'security') {
+      checkMfaStatus();
+      fetchAdminLogs();
+    }
     if (activeTab === 'dictionary') fetchDictionaryWords();
     if (activeTab === 'events') fetchEventsList();
     if (activeTab === 'spots') fetchSpotsList();
@@ -168,6 +184,7 @@ export default function AdminPanel() {
       showMessage('2FA Successfully Enabled!', 'success');
       setMfaStatus('enrolled');
       setTotpCode('');
+      logActivity('Enabled 2FA', 'MFA Setup Completed');
     } catch (err) {
       showMessage('Invalid code. Please try again.', 'error');
     } finally {
@@ -178,6 +195,20 @@ export default function AdminPanel() {
   const showMessage = (text, type) => {
     setMessage({ text, type });
     setTimeout(() => setMessage({ text: '', type: '' }), 5000);
+  };
+
+  const logActivity = async (action, details) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase.from('admin_logs').insert([{
+        action,
+        details,
+        admin_email: user.email
+      }]);
+    } catch (err) {
+      console.error('Failed to log activity:', err);
+    }
   };
 
   const handleManualSubmit = async (e) => {
@@ -196,6 +227,7 @@ export default function AdminPanel() {
       if (error) throw error;
       
       showMessage('Word added successfully!', 'success');
+      logActivity('Added Dictionary Word', `${newWord.ivatan} -> ${newWord.english}`);
       setNewWord({ ivatan: '', tagalog: '', english: '', category: '' });
       fetchDictionaryWords();
     } catch (err) {
@@ -222,6 +254,7 @@ export default function AdminPanel() {
       const { error } = await supabase.from('dictionary').update(editFormData).eq('id', id);
       if (error) throw error;
       showMessage('Word updated successfully!', 'success');
+      logActivity('Updated Dictionary Word', `ID: ${id}`);
       setEditingWordId(null);
       fetchDictionaryWords();
     } catch (err) {
@@ -238,6 +271,7 @@ export default function AdminPanel() {
       const { error } = await supabase.from('dictionary').delete().eq('id', id);
       if (error) throw error;
       showMessage('Word deleted successfully!', 'success');
+      logActivity('Deleted Dictionary Word', `ID: ${id}`);
       fetchDictionaryWords();
     } catch (err) {
       showMessage('Failed to delete word.', 'error');
@@ -305,6 +339,7 @@ export default function AdminPanel() {
         if (error) throw error;
 
         showMessage(`Successfully imported ${rowsToInsert.length} words!`, 'success');
+        logActivity('Bulk Upload Dictionary', `Added ${rowsToInsert.length} words`);
         fetchDictionaryWords();
       } catch (err) {
         console.error(err);
@@ -356,6 +391,7 @@ export default function AdminPanel() {
       if (error) throw error;
 
       showMessage('Event added successfully!', 'success');
+      logActivity('Added Event', newEvent.title);
       setNewEvent({ title: '', description: '', date: '', image: null });
       fetchEventsList();
     } catch (err) {
@@ -398,6 +434,7 @@ export default function AdminPanel() {
       if (error) throw error;
 
       showMessage('Tourist Spot added successfully!', 'success');
+      logActivity('Added Tourist Spot', newSpot.name);
       setNewSpot({ name: '', location: '', description: '', image: null });
       fetchSpotsList();
     } catch (err) {
@@ -443,6 +480,7 @@ export default function AdminPanel() {
       if (error) throw error;
 
       showMessage('Hotel added successfully!', 'success');
+      logActivity('Added Hotel', newHotel.name);
       setNewHotel({ name: '', location: '', description: '', phone: '', latitude: '', longitude: '', image: null });
       fetchHotelsList();
     } catch (err) {
@@ -464,6 +502,7 @@ export default function AdminPanel() {
       const { error } = await supabase.from('events').update(editEventData).eq('id', id);
       if (error) throw error;
       showMessage('Event updated successfully!', 'success');
+      logActivity('Updated Event', `ID: ${id}`);
       setEditingEventId(null);
       fetchEventsList();
     } catch (err) {
@@ -479,6 +518,7 @@ export default function AdminPanel() {
       const { error } = await supabase.from('events').delete().eq('id', id);
       if (error) throw error;
       showMessage('Event deleted successfully!', 'success');
+      logActivity('Deleted Event', `ID: ${id}`);
       fetchEventsList();
     } catch (err) {
       showMessage('Failed to delete event.', 'error');
@@ -498,6 +538,7 @@ export default function AdminPanel() {
       const { error } = await supabase.from('spots').update(editSpotData).eq('id', id);
       if (error) throw error;
       showMessage('Spot updated successfully!', 'success');
+      logActivity('Updated Tourist Spot', `ID: ${id}`);
       setEditingSpotId(null);
       fetchSpotsList();
     } catch (err) {
@@ -513,6 +554,7 @@ export default function AdminPanel() {
       const { error } = await supabase.from('spots').delete().eq('id', id);
       if (error) throw error;
       showMessage('Spot deleted successfully!', 'success');
+      logActivity('Deleted Tourist Spot', `ID: ${id}`);
       fetchSpotsList();
     } catch (err) {
       showMessage('Failed to delete spot.', 'error');
@@ -532,6 +574,7 @@ export default function AdminPanel() {
       const { error } = await supabase.from('hotels').update({ ...editHotelData, latitude: parseFloat(editHotelData.latitude), longitude: parseFloat(editHotelData.longitude) }).eq('id', id);
       if (error) throw error;
       showMessage('Hotel updated successfully!', 'success');
+      logActivity('Updated Hotel', `ID: ${id}`);
       setEditingHotelId(null);
       fetchHotelsList();
     } catch (err) {
@@ -547,6 +590,7 @@ export default function AdminPanel() {
       const { error } = await supabase.from('hotels').delete().eq('id', id);
       if (error) throw error;
       showMessage('Hotel deleted successfully!', 'success');
+      logActivity('Deleted Hotel', `ID: ${id}`);
       fetchHotelsList();
     } catch (err) {
       showMessage('Failed to delete hotel.', 'error');
@@ -1109,6 +1153,38 @@ export default function AdminPanel() {
                </form>
              </div>
           )}
+          {/* Admin Activity Logs */}
+          <div style={{ marginTop: '40px', borderTop: '1px solid #e2e8f0', paddingTop: '20px', textAlign: 'left' }}>
+            <h4 style={{ marginBottom: '15px', color: 'var(--text-secondary)' }}>Recent Admin Activity</h4>
+            <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                <thead style={{ position: 'sticky', top: 0, background: '#f8fafc', zIndex: 1 }}>
+                  <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                    <th style={{ padding: '10px 8px', textAlign: 'left' }}>Date/Time</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'left' }}>Admin Email</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'left' }}>Action</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'left' }}>Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adminLogs.length === 0 ? (
+                    <tr><td colSpan="4" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>No recent activity found.</td></tr>
+                  ) : (
+                    adminLogs.map(log => (
+                      <tr key={log.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '10px 8px', color: 'var(--text-secondary)' }}>
+                          {new Date(log.created_at).toLocaleString()}
+                        </td>
+                        <td style={{ padding: '10px 8px' }}>{log.admin_email}</td>
+                        <td style={{ padding: '10px 8px', fontWeight: '500' }}>{log.action}</td>
+                        <td style={{ padding: '10px 8px', color: 'var(--text-secondary)' }}>{log.details || '-'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
     </div>
