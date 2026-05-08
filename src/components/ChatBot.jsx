@@ -171,20 +171,25 @@ export default function ChatBot() {
       </div>
 
       {/* Input Area */}
-      <form onSubmit={handleSend} style={{ padding: '20px', background: '#f8fafc', borderTop: '1px solid var(--panel-border)', display: 'flex', gap: '10px' }}>
-        <input 
-          type="text" 
-          className="input-field" 
-          placeholder="Ask for a translation..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          disabled={loading}
-          style={{ borderRadius: '24px', paddingLeft: '20px' }}
-        />
-        <button type="submit" className="btn btn-primary" disabled={loading} style={{ borderRadius: '50%', width: '50px', height: '50px', padding: 0, flexShrink: 0 }}>
-          <Send size={20} />
-        </button>
-      </form>
+      <div style={{ padding: '20px', background: '#f8fafc', borderTop: '1px solid var(--panel-border)' }}>
+        <form onSubmit={handleSend} style={{ display: 'flex', gap: '10px' }}>
+          <input 
+            type="text" 
+            className="input-field" 
+            placeholder="Ask for a translation..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={loading}
+            style={{ borderRadius: '24px', paddingLeft: '20px' }}
+          />
+          <button type="submit" className="btn btn-primary" disabled={loading} style={{ borderRadius: '50%', width: '50px', height: '50px', padding: 0, flexShrink: 0 }}>
+            <Send size={20} />
+          </button>
+        </form>
+        <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+          Disclaimer: Translations are community-sourced and may not be 100% accurate.
+        </div>
+      </div>
     </div>
   );
 }

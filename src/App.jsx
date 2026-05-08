@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from 'react-router-dom';
-import { Bot, Settings, LogOut, Home as HomeIcon, Calendar as CalendarIcon, Map, LogIn, Menu, ChevronDown, Hotel, Contact } from 'lucide-react';
+import { Bot, Settings, LogOut, Home as HomeIcon, Calendar as CalendarIcon, Map, LogIn, Menu, ChevronDown, Hotel, Contact, Info, MessageSquare } from 'lucide-react';
 import Home from './components/Home';
 import ChatBot from './components/ChatBot';
 import Events from './components/Events';
@@ -9,6 +9,7 @@ import Hotels from './components/Hotels';
 import TourGuides from './components/TourGuides';
 import AdminPanel from './components/AdminPanel';
 import Login from './components/Login';
+import Support from './components/Support';
 import { supabase } from './lib/supabase';
 import './index.css';
 
@@ -17,6 +18,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isBatanesMenuOpen, setIsBatanesMenuOpen] = useState(false);
+  const [isAboutMenuOpen, setIsAboutMenuOpen] = useState(false);
 
   useEffect(() => {
     // Check active sessions and sets the user
@@ -84,6 +86,18 @@ function App() {
               </div>
             </div>
 
+            {/* Dropdown Menu for About Us */}
+            <div className={`dropdown-container ${isAboutMenuOpen ? 'mobile-dropdown-open' : ''}`}>
+              <div className="nav-pill" style={{ cursor: 'pointer' }} onClick={() => setIsAboutMenuOpen(!isAboutMenuOpen)}>
+                <Info size={18} /> About Us <ChevronDown size={16} />
+              </div>
+              <div className="dropdown-menu">
+                <NavLink to="/support" className="dropdown-item" onClick={() => setIsMobileMenuOpen(false)}>
+                  <MessageSquare size={16} /> Support
+                </NavLink>
+              </div>
+            </div>
+
             {session ? (
               <>
                 <NavLink to="/admin" className={({ isActive }) => isActive ? "nav-pill active" : "nav-pill"} onClick={() => setIsMobileMenuOpen(false)}>
@@ -113,6 +127,7 @@ function App() {
             <Route path="/spots" element={<TouristSpots />} />
             <Route path="/hotels" element={<Hotels />} />
             <Route path="/guides" element={<TourGuides />} />
+            <Route path="/support" element={<Support />} />
             <Route 
               path="/admin" 
               element={

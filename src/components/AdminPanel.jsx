@@ -52,10 +52,73 @@ export default function AdminPanel() {
   const [factorId, setFactorId] = useState('');
   const [totpCode, setTotpCode] = useState('');
 
-  useEffect(() => {
-    if (activeTab === 'security') {
-      checkMfaStatus();
+  // Dictionary Management State
+  const [dictionaryWords, setDictionaryWords] = useState([]);
+  const [editingWordId, setEditingWordId] = useState(null);
+  const [editFormData, setEditFormData] = useState({ ivatan: '', tagalog: '', english: '', category: '' });
+
+  const fetchDictionaryWords = async () => {
+    try {
+      const { data, error } = await supabase.from('dictionary').select('*').order('ivatan');
+      if (error) throw error;
+      setDictionaryWords(data || []);
+    } catch (err) {
+      console.error(err);
+      showMessage('Error loading dictionary words.', 'error');
     }
+  };
+
+  // Events Management State
+  const [eventsList, setEventsList] = useState([]);
+  const [editingEventId, setEditingEventId] = useState(null);
+  const [editEventData, setEditEventData] = useState({ title: '', date: '', description: '' });
+
+  const fetchEventsList = async () => {
+    try {
+      const { data, error } = await supabase.from('events').select('*').order('date');
+      if (error) throw error;
+      setEventsList(data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Spots Management State
+  const [spotsList, setSpotsList] = useState([]);
+  const [editingSpotId, setEditingSpotId] = useState(null);
+  const [editSpotData, setEditSpotData] = useState({ name: '', location: '', description: '' });
+
+  const fetchSpotsList = async () => {
+    try {
+      const { data, error } = await supabase.from('spots').select('*').order('name');
+      if (error) throw error;
+      setSpotsList(data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Hotels Management State
+  const [hotelsList, setHotelsList] = useState([]);
+  const [editingHotelId, setEditingHotelId] = useState(null);
+  const [editHotelData, setEditHotelData] = useState({ name: '', location: '', description: '', phone: '', latitude: '', longitude: '' });
+
+  const fetchHotelsList = async () => {
+    try {
+      const { data, error } = await supabase.from('hotels').select('*').order('name');
+      if (error) throw error;
+      setHotelsList(data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'security') checkMfaStatus();
+    if (activeTab === 'dictionary') fetchDictionaryWords();
+    if (activeTab === 'events') fetchEventsList();
+    if (activeTab === 'spots') fetchSpotsList();
+    if (activeTab === 'hotels') fetchHotelsList();
   }, [activeTab]);
 
   const checkMfaStatus = async () => {
@@ -134,9 +197,50 @@ export default function AdminPanel() {
       
       showMessage('Word added successfully!', 'success');
       setNewWord({ ivatan: '', tagalog: '', english: '', category: '' });
+      fetchDictionaryWords();
     } catch (err) {
       console.error(err);
       showMessage('Error adding word. Check your database connection.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditClick = (word) => {
+    setEditingWordId(word.id);
+    setEditFormData({
+      ivatan: word.ivatan,
+      tagalog: word.tagalog,
+      english: word.english,
+      category: word.category || ''
+    });
+  };
+
+  const handleEditSave = async (id) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('dictionary').update(editFormData).eq('id', id);
+      if (error) throw error;
+      showMessage('Word updated successfully!', 'success');
+      setEditingWordId(null);
+      fetchDictionaryWords();
+    } catch (err) {
+      showMessage('Failed to update word.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteClick = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this translation?')) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('dictionary').delete().eq('id', id);
+      if (error) throw error;
+      showMessage('Word deleted successfully!', 'success');
+      fetchDictionaryWords();
+    } catch (err) {
+      showMessage('Failed to delete word.', 'error');
     } finally {
       setLoading(false);
     }
@@ -201,6 +305,7 @@ export default function AdminPanel() {
         if (error) throw error;
 
         showMessage(`Successfully imported ${rowsToInsert.length} words!`, 'success');
+        fetchDictionaryWords();
       } catch (err) {
         console.error(err);
         showMessage(err.message || 'Error processing Excel file.', 'error');
@@ -252,6 +357,7 @@ export default function AdminPanel() {
 
       showMessage('Event added successfully!', 'success');
       setNewEvent({ title: '', description: '', date: '', image: null });
+      fetchEventsList();
     } catch (err) {
       console.error(err);
       showMessage('Error adding event.', 'error');
@@ -293,6 +399,7 @@ export default function AdminPanel() {
 
       showMessage('Tourist Spot added successfully!', 'success');
       setNewSpot({ name: '', location: '', description: '', image: null });
+      fetchSpotsList();
     } catch (err) {
       console.error(err);
       showMessage('Error adding spot.', 'error');
@@ -337,9 +444,112 @@ export default function AdminPanel() {
 
       showMessage('Hotel added successfully!', 'success');
       setNewHotel({ name: '', location: '', description: '', phone: '', latitude: '', longitude: '', image: null });
+      fetchHotelsList();
     } catch (err) {
       console.error(err);
       showMessage('Error adding hotel.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Handlers for Events Edit/Delete ---
+  const handleEventEditClick = (event) => {
+    setEditingEventId(event.id);
+    setEditEventData({ title: event.title, date: event.date, description: event.description });
+  };
+  const handleEventEditSave = async (id) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('events').update(editEventData).eq('id', id);
+      if (error) throw error;
+      showMessage('Event updated successfully!', 'success');
+      setEditingEventId(null);
+      fetchEventsList();
+    } catch (err) {
+      showMessage('Failed to update event.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleEventDeleteClick = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this event?')) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('events').delete().eq('id', id);
+      if (error) throw error;
+      showMessage('Event deleted successfully!', 'success');
+      fetchEventsList();
+    } catch (err) {
+      showMessage('Failed to delete event.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Handlers for Spots Edit/Delete ---
+  const handleSpotEditClick = (spot) => {
+    setEditingSpotId(spot.id);
+    setEditSpotData({ name: spot.name, location: spot.location, description: spot.description });
+  };
+  const handleSpotEditSave = async (id) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('spots').update(editSpotData).eq('id', id);
+      if (error) throw error;
+      showMessage('Spot updated successfully!', 'success');
+      setEditingSpotId(null);
+      fetchSpotsList();
+    } catch (err) {
+      showMessage('Failed to update spot.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleSpotDeleteClick = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this spot?')) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('spots').delete().eq('id', id);
+      if (error) throw error;
+      showMessage('Spot deleted successfully!', 'success');
+      fetchSpotsList();
+    } catch (err) {
+      showMessage('Failed to delete spot.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Handlers for Hotels Edit/Delete ---
+  const handleHotelEditClick = (hotel) => {
+    setEditingHotelId(hotel.id);
+    setEditHotelData({ name: hotel.name, location: hotel.location, description: hotel.description, phone: hotel.phone, latitude: hotel.latitude, longitude: hotel.longitude });
+  };
+  const handleHotelEditSave = async (id) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('hotels').update({ ...editHotelData, latitude: parseFloat(editHotelData.latitude), longitude: parseFloat(editHotelData.longitude) }).eq('id', id);
+      if (error) throw error;
+      showMessage('Hotel updated successfully!', 'success');
+      setEditingHotelId(null);
+      fetchHotelsList();
+    } catch (err) {
+      showMessage('Failed to update hotel.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleHotelDeleteClick = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this hotel?')) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('hotels').delete().eq('id', id);
+      if (error) throw error;
+      showMessage('Hotel deleted successfully!', 'success');
+      fetchHotelsList();
+    } catch (err) {
+      showMessage('Failed to delete hotel.', 'error');
     } finally {
       setLoading(false);
     }
@@ -406,8 +616,9 @@ export default function AdminPanel() {
       </div>
 
       {activeTab === 'dictionary' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
-          {/* Manual Entry Form */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+          <div className="responsive-grid">
+            {/* Manual Entry Form */}
         <div className="glass-panel" style={{ padding: '20px', background: '#ffffff' }}>
           <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Plus size={18} color="var(--primary-color)"/> Add Single Word
@@ -495,8 +706,66 @@ export default function AdminPanel() {
               {loading ? 'Uploading...' : 'Browse Files'}
             </button>
           </div>
+          </div>
+          </div>
+
+          {/* Dictionary Management List */}
+          <div className="glass-panel" style={{ padding: '20px', background: '#ffffff', overflowX: 'auto' }}>
+            <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Database size={18} color="var(--primary-color)"/> Dictionary Entries ({dictionaryWords.length})
+            </h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+                  <th style={{ padding: '12px 8px' }}>Ivatan</th>
+                  <th style={{ padding: '12px 8px' }}>Tagalog</th>
+                  <th style={{ padding: '12px 8px' }}>English</th>
+                  <th style={{ padding: '12px 8px' }}>Category</th>
+                  <th style={{ padding: '12px 8px', textAlign: 'center' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dictionaryWords.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>No entries found</td>
+                  </tr>
+                ) : (
+                  dictionaryWords.map(word => (
+                    <tr key={word.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      {editingWordId === word.id ? (
+                        <>
+                          <td style={{ padding: '8px' }}><input type="text" className="input-field" style={{ padding: '8px' }} value={editFormData.ivatan} onChange={e => setEditFormData({...editFormData, ivatan: e.target.value})} /></td>
+                          <td style={{ padding: '8px' }}><input type="text" className="input-field" style={{ padding: '8px' }} value={editFormData.tagalog} onChange={e => setEditFormData({...editFormData, tagalog: e.target.value})} /></td>
+                          <td style={{ padding: '8px' }}><input type="text" className="input-field" style={{ padding: '8px' }} value={editFormData.english} onChange={e => setEditFormData({...editFormData, english: e.target.value})} /></td>
+                          <td style={{ padding: '8px' }}><input type="text" className="input-field" style={{ padding: '8px' }} value={editFormData.category} onChange={e => setEditFormData({...editFormData, category: e.target.value})} /></td>
+                          <td style={{ padding: '8px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                              <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => handleEditSave(word.id)}>Save</button>
+                              <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => setEditingWordId(null)}>Cancel</button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={{ padding: '12px 8px' }}>{word.ivatan}</td>
+                          <td style={{ padding: '12px 8px' }}>{word.tagalog}</td>
+                          <td style={{ padding: '12px 8px' }}>{word.english}</td>
+                          <td style={{ padding: '12px 8px' }}>{word.category || '-'}</td>
+                          <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                              <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => handleEditClick(word)}>Edit</button>
+                              <button className="btn" style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#fee2e2', color: 'var(--error-color)' }} onClick={() => handleDeleteClick(word.id)}>Delete</button>
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
       )}
 
       {activeTab === 'events' && (
@@ -550,6 +819,56 @@ export default function AdminPanel() {
               {loading ? 'Saving Event...' : 'Publish Event'}
             </button>
           </form>
+
+          {/* Events Management List */}
+          <div style={{ marginTop: '40px', overflowX: 'auto', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
+            <h4 style={{ marginBottom: '15px', color: 'var(--text-secondary)' }}>Manage Events ({eventsList.length})</h4>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+                  <th style={{ padding: '12px 8px' }}>Title</th>
+                  <th style={{ padding: '12px 8px' }}>Date</th>
+                  <th style={{ padding: '12px 8px' }}>Description</th>
+                  <th style={{ padding: '12px 8px', textAlign: 'center' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {eventsList.length === 0 ? (
+                  <tr><td colSpan="4" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>No events found</td></tr>
+                ) : (
+                  eventsList.map(event => (
+                    <tr key={event.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      {editingEventId === event.id ? (
+                        <>
+                          <td style={{ padding: '8px' }}><input type="text" className="input-field" style={{ padding: '8px' }} value={editEventData.title} onChange={e => setEditEventData({...editEventData, title: e.target.value})} /></td>
+                          <td style={{ padding: '8px' }}><input type="date" className="input-field" style={{ padding: '8px' }} value={editEventData.date} onChange={e => setEditEventData({...editEventData, date: e.target.value})} /></td>
+                          <td style={{ padding: '8px' }}><input type="text" className="input-field" style={{ padding: '8px' }} value={editEventData.description} onChange={e => setEditEventData({...editEventData, description: e.target.value})} /></td>
+                          <td style={{ padding: '8px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                              <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => handleEventEditSave(event.id)}>Save</button>
+                              <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => setEditingEventId(null)}>Cancel</button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={{ padding: '12px 8px' }}>{event.title}</td>
+                          <td style={{ padding: '12px 8px' }}>{event.date}</td>
+                          <td style={{ padding: '12px 8px' }}>{event.description?.substring(0, 50)}...</td>
+                          <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                              <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => handleEventEditClick(event)}>Edit</button>
+                              <button className="btn" style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#fee2e2', color: 'var(--error-color)' }} onClick={() => handleEventDeleteClick(event.id)}>Delete</button>
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -579,6 +898,56 @@ export default function AdminPanel() {
               {loading ? 'Saving...' : 'Add Spot'}
             </button>
           </form>
+
+          {/* Spots Management List */}
+          <div style={{ marginTop: '40px', overflowX: 'auto', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
+            <h4 style={{ marginBottom: '15px', color: 'var(--text-secondary)' }}>Manage Tourist Spots ({spotsList.length})</h4>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+                  <th style={{ padding: '12px 8px' }}>Name</th>
+                  <th style={{ padding: '12px 8px' }}>Location</th>
+                  <th style={{ padding: '12px 8px' }}>Description</th>
+                  <th style={{ padding: '12px 8px', textAlign: 'center' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {spotsList.length === 0 ? (
+                  <tr><td colSpan="4" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>No tourist spots found</td></tr>
+                ) : (
+                  spotsList.map(spot => (
+                    <tr key={spot.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      {editingSpotId === spot.id ? (
+                        <>
+                          <td style={{ padding: '8px' }}><input type="text" className="input-field" style={{ padding: '8px' }} value={editSpotData.name} onChange={e => setEditSpotData({...editSpotData, name: e.target.value})} /></td>
+                          <td style={{ padding: '8px' }}><input type="text" className="input-field" style={{ padding: '8px' }} value={editSpotData.location} onChange={e => setEditSpotData({...editSpotData, location: e.target.value})} /></td>
+                          <td style={{ padding: '8px' }}><input type="text" className="input-field" style={{ padding: '8px' }} value={editSpotData.description} onChange={e => setEditSpotData({...editSpotData, description: e.target.value})} /></td>
+                          <td style={{ padding: '8px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                              <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => handleSpotEditSave(spot.id)}>Save</button>
+                              <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => setEditingSpotId(null)}>Cancel</button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={{ padding: '12px 8px' }}>{spot.name}</td>
+                          <td style={{ padding: '12px 8px' }}>{spot.location}</td>
+                          <td style={{ padding: '12px 8px' }}>{spot.description?.substring(0, 50)}...</td>
+                          <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                              <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => handleSpotEditClick(spot)}>Edit</button>
+                              <button className="btn" style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#fee2e2', color: 'var(--error-color)' }} onClick={() => handleSpotDeleteClick(spot.id)}>Delete</button>
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -622,6 +991,65 @@ export default function AdminPanel() {
               {loading ? 'Saving...' : 'Add Hotel'}
             </button>
           </form>
+
+          {/* Hotels Management List */}
+          <div style={{ marginTop: '40px', overflowX: 'auto', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
+            <h4 style={{ marginBottom: '15px', color: 'var(--text-secondary)' }}>Manage Hotels ({hotelsList.length})</h4>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
+                  <th style={{ padding: '12px 8px' }}>Name</th>
+                  <th style={{ padding: '12px 8px' }}>Location</th>
+                  <th style={{ padding: '12px 8px' }}>Phone</th>
+                  <th style={{ padding: '12px 8px' }}>Lat/Long</th>
+                  <th style={{ padding: '12px 8px' }}>Description</th>
+                  <th style={{ padding: '12px 8px', textAlign: 'center' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {hotelsList.length === 0 ? (
+                  <tr><td colSpan="6" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>No hotels found</td></tr>
+                ) : (
+                  hotelsList.map(hotel => (
+                    <tr key={hotel.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      {editingHotelId === hotel.id ? (
+                        <>
+                          <td style={{ padding: '8px' }}><input type="text" className="input-field" style={{ padding: '8px' }} value={editHotelData.name} onChange={e => setEditHotelData({...editHotelData, name: e.target.value})} /></td>
+                          <td style={{ padding: '8px' }}><input type="text" className="input-field" style={{ padding: '8px' }} value={editHotelData.location} onChange={e => setEditHotelData({...editHotelData, location: e.target.value})} /></td>
+                          <td style={{ padding: '8px' }}><input type="text" className="input-field" style={{ padding: '8px' }} value={editHotelData.phone} onChange={e => setEditHotelData({...editHotelData, phone: e.target.value})} /></td>
+                          <td style={{ padding: '8px' }}>
+                            <input type="number" step="any" className="input-field" style={{ padding: '8px', marginBottom: '4px' }} placeholder="Lat" value={editHotelData.latitude} onChange={e => setEditHotelData({...editHotelData, latitude: e.target.value})} />
+                            <input type="number" step="any" className="input-field" style={{ padding: '8px' }} placeholder="Long" value={editHotelData.longitude} onChange={e => setEditHotelData({...editHotelData, longitude: e.target.value})} />
+                          </td>
+                          <td style={{ padding: '8px' }}><input type="text" className="input-field" style={{ padding: '8px' }} value={editHotelData.description} onChange={e => setEditHotelData({...editHotelData, description: e.target.value})} /></td>
+                          <td style={{ padding: '8px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                              <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => handleHotelEditSave(hotel.id)}>Save</button>
+                              <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => setEditingHotelId(null)}>Cancel</button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={{ padding: '12px 8px' }}>{hotel.name}</td>
+                          <td style={{ padding: '12px 8px' }}>{hotel.location}</td>
+                          <td style={{ padding: '12px 8px' }}>{hotel.phone || '-'}</td>
+                          <td style={{ padding: '12px 8px' }}>{hotel.latitude}, {hotel.longitude}</td>
+                          <td style={{ padding: '12px 8px' }}>{hotel.description?.substring(0, 30)}...</td>
+                          <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                              <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => handleHotelEditClick(hotel)}>Edit</button>
+                              <button className="btn" style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#fee2e2', color: 'var(--error-color)' }} onClick={() => handleHotelDeleteClick(hotel.id)}>Delete</button>
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
