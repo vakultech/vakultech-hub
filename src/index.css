@@ -159,6 +159,34 @@ h1, h2, h3, h4, h5, h6 {
   padding: 8px;
 }
 
+/* Admin Tabs */
+.admin-tab {
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  background: white;
+  border: 1px solid var(--panel-border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-tab:hover {
+  background: #f1f5f9;
+}
+
+.admin-tab.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+}
+
 /* Buttons */
 .btn {
   display: inline-flex;

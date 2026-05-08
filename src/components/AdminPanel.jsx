@@ -1,12 +1,34 @@
 import { useState, useRef, useEffect } from 'react';
-import { Upload, Plus, Database, AlertCircle, CheckCircle2, CalendarDays, ShieldCheck, QrCode, Map, Hotel } from 'lucide-react';
+import { Upload, Plus, Database, AlertCircle, CheckCircle2, CalendarDays, ShieldCheck, QrCode, Map, Hotel, Users, UserX, UserCheck } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('dictionary');
+  const [dbStatus, setDbStatus] = useState('checking'); // checking, connected, error
   
+  useEffect(() => {
+    const checkConnection = async () => {
+      // Create a timeout that fails after 1.5 seconds
+      const timeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('timeout')), 1500)
+      );
+
+      try {
+        await Promise.race([
+          supabase.from('dictionary').select('id').limit(1),
+          timeout
+        ]);
+        setDbStatus('connected');
+      } catch (err) {
+        console.error("Connection check failed:", err);
+        setDbStatus('error');
+      }
+    };
+    checkConnection();
+  }, []);
+
   // Dictionary State
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
@@ -62,6 +84,7 @@ export default function AdminPanel() {
       const { data, error } = await supabase.from('dictionary').select('*').order('ivatan');
       if (error) throw error;
       setDictionaryWords(data || []);
+      console.log(`Loaded ${data?.length || 0} dictionary words`);
     } catch (err) {
       console.error(err);
       showMessage('Error loading dictionary words.', 'error');
@@ -113,6 +136,97 @@ export default function AdminPanel() {
     }
   };
 
+  // Users Management State
+  const [usersList, setUsersList] = useState([]);
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [editUserFormData, setEditUserFormData] = useState({
+    full_name: '',
+    contact_number: '',
+    address: '',
+    birthdate: '',
+    role: 'user'
+  });
+  
+  const fetchUsersList = async () => {
+    try {
+      const { data, error } = await supabase.from('profiles').select('*');
+      if (error) throw error;
+      setUsersList(data || []);
+      console.log(`Loaded ${data?.length || 0} profiles`);
+    } catch (err) {
+      console.error('Error loading users:', err);
+      setUsersList([]);
+    }
+  };
+
+  const repairDatabase = async () => {
+    setLoading(true);
+    try {
+      // Try to insert current user profile
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('profiles').upsert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || user.email,
+          role: 'admin',
+          status: 'active'
+        });
+      }
+      showMessage('Database repair attempted! Refreshing...', 'success');
+      fetchUsersList();
+    } catch (err) {
+      console.error(err);
+      showMessage('Repair failed. Use SQL Editor if this persists.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleUserStatus = async (userId, currentStatus) => {
+    const newStatus = currentStatus === 'active' ? 'deactivated' : 'active';
+    try {
+      const { error } = await supabase.from('profiles').update({ status: newStatus }).eq('id', userId);
+      if (error) throw error;
+      showMessage(`User ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully!`, 'success');
+      fetchUsersList();
+    } catch (err) {
+      showMessage('Failed to update user status.', 'error');
+    }
+  };
+
+  const handleEditUser = (user) => {
+    setEditingUserId(user.id);
+    setEditUserFormData({
+      full_name: user.full_name || '',
+      contact_number: user.contact_number || '',
+      address: user.address || '',
+      birthdate: user.birthdate || '',
+      role: user.role || 'user'
+    });
+  };
+
+  const handleUpdateUserProfile = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('profiles')
+        .update(editUserFormData)
+        .eq('id', editingUserId);
+
+      if (error) throw error;
+      
+      showMessage('User profile updated successfully!', 'success');
+      setEditingUserId(null);
+      fetchUsersList();
+    } catch (err) {
+      showMessage('Failed to update user profile.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Admin Logs State
   const [adminLogs, setAdminLogs] = useState([]);
 
@@ -121,8 +235,10 @@ export default function AdminPanel() {
       const { data, error } = await supabase.from('admin_logs').select('*').order('created_at', { ascending: false }).limit(50);
       if (error) throw error;
       setAdminLogs(data || []);
+      console.log(`Loaded ${data?.length || 0} activity logs`);
     } catch (err) {
       console.error('Failed to fetch admin logs:', err);
+      showMessage(`Security Logs Error: ${err.message}`, 'error');
     }
   };
 
@@ -135,9 +251,13 @@ export default function AdminPanel() {
     if (activeTab === 'events') fetchEventsList();
     if (activeTab === 'spots') fetchSpotsList();
     if (activeTab === 'hotels') fetchHotelsList();
+    if (activeTab === 'accounts') fetchUsersList();
   }, [activeTab]);
 
   const checkMfaStatus = async () => {
+    // Safety timeout: stop loading message after 2 seconds
+    const timer = setTimeout(() => setMfaStatus('unenrolled'), 2000);
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user && user.factors && user.factors.length > 0) {
@@ -147,6 +267,9 @@ export default function AdminPanel() {
       }
     } catch (err) {
       console.error(err);
+      setMfaStatus('unenrolled');
+    } finally {
+      clearTimeout(timer);
     }
   };
 
@@ -602,8 +725,28 @@ export default function AdminPanel() {
   return (
     <div className="glass-panel animate-fade-in" style={{ padding: '30px' }}>
       <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-        <h2 style={{ color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-          <Database size={24} /> Dictionary Admin
+        <h2 style={{ color: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px' }}>
+          <Database size={28} /> Dictionary Admin
+          <div style={{ 
+            fontSize: '0.7rem', 
+            padding: '4px 10px', 
+            borderRadius: '20px', 
+            background: dbStatus === 'connected' ? '#dcfce7' : (dbStatus === 'error' ? '#fee2e2' : '#f1f5f9'),
+            color: dbStatus === 'connected' ? '#166534' : (dbStatus === 'error' ? '#991b1b' : '#64748b'),
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            fontWeight: '600',
+            border: `1px solid ${dbStatus === 'connected' ? '#166534' : (dbStatus === 'error' ? '#991b1b' : '#cbd5e1')}`
+          }}>
+            <div style={{ 
+              width: '8px', 
+              height: '8px', 
+              borderRadius: '50%', 
+              background: dbStatus === 'connected' ? '#22c55e' : (dbStatus === 'error' ? '#ef4444' : '#94a3b8')
+            }}></div>
+            {dbStatus === 'connected' ? 'CONNECTED' : (dbStatus === 'error' ? 'DISCONNECTED' : 'CHECKING...')}
+          </div>
         </h2>
         <p style={{ color: 'var(--text-secondary)', marginTop: '10px' }}>Manage translations and bulk upload via Excel</p>
       </div>
@@ -628,34 +771,40 @@ export default function AdminPanel() {
       {/* Tabs */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '30px', justifyContent: 'center' }}>
         <button 
-          className={`btn ${activeTab === 'dictionary' ? 'btn-primary' : 'btn-secondary'}`} 
+          className={`admin-tab ${activeTab === 'dictionary' ? 'active' : ''}`} 
           onClick={() => setActiveTab('dictionary')}
         >
-          Dictionary
+          <Database size={20} /> Dictionary
         </button>
         <button 
-          className={`btn ${activeTab === 'events' ? 'btn-primary' : 'btn-secondary'}`} 
+          className={`admin-tab ${activeTab === 'events' ? 'active' : ''}`} 
           onClick={() => setActiveTab('events')}
         >
-          Events
+          <CalendarDays size={20} /> Events
         </button>
         <button 
-          className={`btn ${activeTab === 'spots' ? 'btn-primary' : 'btn-secondary'}`} 
+          className={`admin-tab ${activeTab === 'spots' ? 'active' : ''}`} 
           onClick={() => setActiveTab('spots')}
         >
-          Tourist Spots
+          <Map size={20} /> Tourist Spots
         </button>
         <button 
-          className={`btn ${activeTab === 'hotels' ? 'btn-primary' : 'btn-secondary'}`} 
+          className={`admin-tab ${activeTab === 'hotels' ? 'active' : ''}`} 
           onClick={() => setActiveTab('hotels')}
         >
-          Hotels
+          <Hotel size={20} /> Hotels
         </button>
         <button 
-          className={`btn ${activeTab === 'security' ? 'btn-primary' : 'btn-secondary'}`} 
+          className={`admin-tab ${activeTab === 'accounts' ? 'active' : ''}`} 
+          onClick={() => setActiveTab('accounts')}
+        >
+          <Users size={20} /> Accounts
+        </button>
+        <button 
+          className={`admin-tab ${activeTab === 'security' ? 'active' : ''}`} 
           onClick={() => setActiveTab('security')}
         >
-          Security
+          <ShieldCheck size={20} /> Security
         </button>
       </div>
 
@@ -1097,6 +1246,175 @@ export default function AdminPanel() {
         </div>
       )}
 
+      {activeTab === 'accounts' && (
+        <div className="glass-panel" style={{ padding: '30px', background: '#ffffff' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Users size={24} color="var(--primary-color)" /> Registered Accounts
+            </h3>
+            <button 
+              onClick={repairDatabase} 
+              className="btn btn-secondary" 
+              style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px' }}
+              disabled={loading}
+            >
+              <Database size={16} /> Repair & Sync Profiles
+            </button>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
+              <thead>
+                <tr style={{ textAlign: 'left', borderBottom: '2px solid #f1f5f9' }}>
+                  <th style={{ padding: '15px' }}>User Details</th>
+                  <th style={{ padding: '15px' }}>Contact</th>
+                  <th style={{ padding: '15px' }}>Location</th>
+                  <th style={{ padding: '15px' }}>Role</th>
+                  <th style={{ padding: '15px' }}>Status</th>
+                  <th style={{ padding: '15px', textAlign: 'center' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usersList.map((user) => (
+                  <tr key={user.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '15px' }}>
+                      <div style={{ fontWeight: '600' }}>{user.full_name || 'No Name'}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{user.email}</div>
+                    </td>
+                    <td style={{ padding: '15px', fontSize: '0.9rem' }}>{user.contact_number || '-'}</td>
+                    <td style={{ padding: '15px', fontSize: '0.9rem' }}>{user.address || '-'}</td>
+                    <td style={{ padding: '15px' }}>
+                      <span style={{ 
+                        padding: '4px 10px', 
+                        borderRadius: '20px', 
+                        fontSize: '0.75rem', 
+                        background: user.role === 'admin' ? '#dcfce7' : '#f1f5f9',
+                        color: user.role === 'admin' ? '#166534' : '#64748b',
+                        fontWeight: '600'
+                      }}>
+                        {user.role?.toUpperCase() || 'USER'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '15px' }}>
+                      <span style={{ 
+                        color: user.status === 'active' ? 'var(--success-color)' : 'var(--error-color)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        fontSize: '0.9rem',
+                        fontWeight: '500'
+                      }}>
+                        {user.status === 'active' ? <CheckCircle2 size={16} /> : <UserX size={16} />}
+                        {user.status === 'active' ? 'Active' : 'Banned'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '15px', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                        <button 
+                          onClick={() => handleEditUser(user)}
+                          className="btn btn-secondary"
+                          style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                        >
+                          Edit
+                        </button>
+                        {user.role !== 'admin' && (
+                          <button 
+                            onClick={() => handleToggleUserStatus(user.id, user.status)}
+                            className={`btn ${user.status === 'active' ? 'btn-secondary' : 'btn-primary'}`}
+                            style={{ 
+                              padding: '6px 12px', 
+                              fontSize: '0.8rem',
+                              color: user.status === 'active' ? 'var(--error-color)' : 'var(--success-color)',
+                              borderColor: user.status === 'active' ? 'var(--error-color)' : 'var(--success-color)'
+                            }}
+                          >
+                            {user.status === 'active' ? <UserX size={14} /> : <UserCheck size={14} />}
+                            {user.status === 'active' ? ' Deactivate' : ' Reactivate'}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Edit User Modal */}
+          {editingUserId && (
+            <div style={{ 
+              position: 'fixed', 
+              top: 0, left: 0, right: 0, bottom: 0, 
+              background: 'rgba(0,0,0,0.5)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              zIndex: 1000,
+              padding: '20px'
+            }}>
+              <div className="glass-panel" style={{ background: '#ffffff', padding: '30px', maxWidth: '500px', width: '100%' }}>
+                <h3 style={{ marginBottom: '20px' }}>Edit User Profile</h3>
+                <form onSubmit={handleUpdateUserProfile}>
+                  <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>Full Name</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      value={editUserFormData.full_name}
+                      onChange={(e) => setEditUserFormData({...editUserFormData, full_name: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>Contact Number</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      value={editUserFormData.contact_number}
+                      onChange={(e) => setEditUserFormData({...editUserFormData, contact_number: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>Address</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      value={editUserFormData.address}
+                      onChange={(e) => setEditUserFormData({...editUserFormData, address: e.target.value})}
+                    />
+                  </div>
+                  <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>Role</label>
+                    <select 
+                      className="input-field" 
+                      value={editUserFormData.role}
+                      onChange={(e) => setEditUserFormData({...editUserFormData, role: e.target.value})}
+                    >
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>Birthdate</label>
+                    <input 
+                      type="date" 
+                      className="input-field" 
+                      value={editUserFormData.birthdate}
+                      onChange={(e) => setEditUserFormData({...editUserFormData, birthdate: e.target.value})}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save Changes</button>
+                    <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setEditingUserId(null)}>Cancel</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === 'security' && (
         <div className="glass-panel" style={{ padding: '30px', background: '#ffffff', maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
           <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
@@ -1158,29 +1476,51 @@ export default function AdminPanel() {
             <h4 style={{ marginBottom: '15px', color: 'var(--text-secondary)' }}>Recent Admin Activity</h4>
             <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                <thead style={{ position: 'sticky', top: 0, background: '#f8fafc', zIndex: 1 }}>
-                  <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                    <th style={{ padding: '10px 8px', textAlign: 'left' }}>Date/Time</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'left' }}>Admin Email</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'left' }}>Action</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'left' }}>Details</th>
+                <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                  <tr>
+                    <th style={{ padding: '15px', textAlign: 'left', fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Date/Time</th>
+                    <th style={{ padding: '15px', textAlign: 'left', fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Admin Email</th>
+                    <th style={{ padding: '15px', textAlign: 'left', fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Device ID</th>
+                    <th style={{ padding: '15px', textAlign: 'left', fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Device/Browser</th>
+                    <th style={{ padding: '15px', textAlign: 'left', fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Location</th>
+                    <th style={{ padding: '15px', textAlign: 'left', fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {adminLogs.length === 0 ? (
-                    <tr><td colSpan="4" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>No recent activity found.</td></tr>
-                  ) : (
-                    adminLogs.map(log => (
-                      <tr key={log.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '10px 8px', color: 'var(--text-secondary)' }}>
-                          {new Date(log.created_at).toLocaleString()}
-                        </td>
-                        <td style={{ padding: '10px 8px' }}>{log.admin_email}</td>
-                        <td style={{ padding: '10px 8px', fontWeight: '500' }}>{log.action}</td>
-                        <td style={{ padding: '10px 8px', color: 'var(--text-secondary)' }}>{log.details || '-'}</td>
-                      </tr>
-                    ))
-                  )}
+                  {adminLogs.map((log) => (
+                    <tr key={log.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '15px', fontSize: '0.9rem' }}>
+                        {new Date(log.created_at).toLocaleString()}
+                      </td>
+                      <td style={{ padding: '15px', fontSize: '0.9rem' }}>
+                        {log.admin_email}
+                      </td>
+                      <td style={{ padding: '15px', fontSize: '0.85rem' }}>
+                        <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', color: 'var(--primary-color)' }}>
+                          {log.device_id || 'Legacy'}
+                        </code>
+                      </td>
+                      <td style={{ padding: '15px', fontSize: '0.85rem' }}>
+                        <div style={{ fontWeight: '600' }}>{log.device || 'Unknown'}</div>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{log.browser || 'Unknown'}</div>
+                      </td>
+                      <td style={{ padding: '15px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        {log.location || 'N/A'}
+                      </td>
+                      <td style={{ padding: '15px', fontSize: '0.9rem' }}>
+                        <span style={{ 
+                          padding: '4px 10px', 
+                          borderRadius: '20px', 
+                          background: '#ecfdf5', 
+                          color: '#059669',
+                          fontSize: '0.75rem',
+                          fontWeight: '600'
+                        }}>
+                          {log.action}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
